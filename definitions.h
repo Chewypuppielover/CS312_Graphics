@@ -49,6 +49,17 @@ struct Vertex
     double w;
 };
 
+struct camControls
+{
+    double x = 0;
+    double y = 0;
+    double z = 0;
+    double yaw = 0;
+    double roll = 0;
+    double pitch = 0;
+};
+camControls myCam;
+
 /******************************************************
  * BUFFER_2D:
  * Used for 2D buffers including render targets, images
@@ -59,6 +70,7 @@ template <class T>
 class Buffer2D 
 {
     protected:
+        bool baseAllocated = false;
         T** grid;
         int w;
         int h;
@@ -68,25 +80,23 @@ class Buffer2D
         {
             // Allocate pointers for column references
             grid = (T**)malloc(sizeof(T*) * h);                
-            for(int r = 0; r < h; r++)
-            {
-                grid[r] = (T*)malloc(sizeof(T) * w);
-            }
+            for(int r = 0; r < h; r++) grid[r] = (T*)malloc(sizeof(T) * w);
+	        baseAllocated = true;
         }
 
         // Empty Constructor
-        Buffer2D() {}
-
+	    Buffer2D() {}
+		
     public:
         // Free dynamic memory
         ~Buffer2D()
         {
             // De-Allocate pointers for column references
-            for(int r = 0; r < h; r++)
+            if(baseAllocated)	    
             {
-                free(grid[r]);
+                for(int r = 0; r < h; r++) free(grid[r]);
+                free(grid);
             }
-            free(grid);
         }
 
         // Size-Specified constructor, no data
@@ -104,25 +114,13 @@ class Buffer2D
             w = ib.width();
             h = ib.height();
             setupInternal();
-            for(int r = 0; r < h; r++)
-            {
-                for(int c = 0; c < w; c++)
-                {
-                    grid[r][c] = ib[r][c];
-                }
-            }
+            for(int r = 0; r < h; r++) { for(int c = 0; c < w; c++) grid[r][c] = ib[r][c]; }
         }
 
         // Set each member to zero 
         void zeroOut()
         {
-            for(int r = 0; r < h; r++)
-            {
-                for(int c = 0; c < w; c++)
-                {
-                    grid[r][c] = 0;
-                }
-            }
+            for(int r = 0; r < h; r++) { for(int c = 0; c < w; c++) grid[r][c] = 0; }
         }
 
         // Width, height
@@ -130,12 +128,8 @@ class Buffer2D
         const int & height() { return h; }
 
         // The frequented operator for grabbing pixels
-        inline T* & operator[] (int i)
-        {
-            return grid[i];
-        }
+        inline T* & operator[] (int i) { return grid[i]; }
 };
-
 
 /****************************************************
  * BUFFER_IMAGE:
@@ -236,6 +230,26 @@ class Matrix
             matrix4[2][2] = z;
         }
 
+        Matrix camera(const double & x, const double & y, const double & z,
+                      const double & yaw, const double & pitch, const double & roll)
+        {
+            Matrix trans = Matrix().trans(-x, -y, -z);
+            //rot arount Y is yaw, rot around X is pitch, rot around z is roll
+            Matrix rotation = Matrix().rotate(-pitch, -yaw, -roll);
+            return rotation.multi(trans.matrix4);
+        }
+        Matrix perspective(const double & fovY, const double & aspectRatio, 
+                            const double & near, const double & far)
+        {
+            double top = near * tan((fovY * M_PI / 180.0) / 2.0);
+		    double right = aspectRatio * top;
+            double perspective[4][4] = { {near/right, 0, 0, 0 },
+                                         {0, near/top, 0, 0},
+                                         {0, 0, (far+near)/(far-near), (-2*far*near)/(far-near)},
+                                         {0, 0, 1, 0} };
+            return Matrix(perspective);
+        }
+
         Matrix trans(double x, double y, double z)
         {
             double trans[4][4] = {{1,0,0,x}, {0,1,0,y}, {0,0,1,z}, {0,0,0,1}};
@@ -260,14 +274,35 @@ class Matrix
             {
                 for (int j = 0; j < 4; j++)
                 {
-                    for (int k = 0; k < 4; k++) sum += matrix4[i][k] * matrix[k][j];
-                    multi[i][j] = sum;
                     sum = 0;
+                    for (int k = 0; k < 4; k++) 
+                        sum += matrix4[i][k] * matrix[k][j];
+                    multi[i][j] = sum;
                 }
             }
             return Matrix(multi);
         }
-        Vertex multi(Vertex vertIn) 
+        Matrix operator*(const Matrix & matrix) const
+        {
+            double multi[4][4];
+            double sum = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    sum = 0;
+                    for (int k = 0; k < 4; k++) 
+                    {
+                        double l = matrix4[i][k];
+                        double r = matrix.matrix4[k][j];
+                        sum += matrix4[i][k] * matrix.matrix4[k][j];
+                    }   
+                    multi[i][j] = sum;
+                }
+            }
+            return Matrix(multi);
+        }
+        Vertex operator*(const Vertex & vertIn) const 
         {
             double x = (matrix4[0][0] * vertIn.x) + (matrix4[0][1] * vertIn.y)
                         + (matrix4[0][2] * vertIn.z) + (matrix4[0][3] * vertIn.w);
@@ -296,62 +331,74 @@ union doublePointer
 class Attributes
 {   
     public:
-        //PIXEL color;
-        Matrix matrix;
-        vector<doublePointer> colorAttr;
-
+        vector<doublePointer> attrAry;
+        int numMembers = 0;
         // Obligatory empty constructor
-        Attributes() {}
+        Attributes() { numMembers = 0; }
 
         // Needed by clipping (linearly interpolated Attributes between two others)
-        Attributes(const Attributes & first, const Attributes & second, const double & valueBetween)
+        Attributes(const Attributes & first, const Attributes & second, const double & along)
         {
             // Your code goes here when clipping is implemented
-            
+            for(int i = 0; i < first.numMembers; i++) 
+            {
+                double d = (first[i].d) + ((second[i].d - first[i].d) * along);
+                addDouble(d);
+            }
         }
+        //Interpolation Constructor
         Attributes(Attributes* const attrs, const double & area0, const double & area1, const double & area2, const double & Z)
         {
-            for(int i = 0; i < attrs[0].colorAttr.size(); i++)
+            for(int i = 0; i < attrs[0].numMembers; i++)
             {
                 //determine attribute by adding each portion of vertex given by the corresponding area
-                addDouble(((attrs[0][i].d * area0) + (attrs[1][i].d * area1) + (attrs[2][i].d * area2))*Z);
+                double d = ( (attrs[0][i].d * area0) + (attrs[1][i].d * area1) + (attrs[2][i].d * area2) )*Z;
+                addDouble(d);
             }
         }
         void addDouble (const double & d)
         {
             doublePointer newD;
             newD.d = d;
-            colorAttr.push_back(newD);
+            attrAry.push_back(newD);
+            attrAry.shrink_to_fit();
+            numMembers++;
         }
         void addDouble (const double & d0, const double & d1, const double & d2)
         {
             doublePointer newD;
             newD.d = d0;
-            colorAttr.push_back(newD);
+            attrAry.push_back(newD);
             newD.d = d1;
-            colorAttr.push_back(newD);
+            attrAry.push_back(newD);
             newD.d = d2;
-            colorAttr.push_back(newD);
+            attrAry.push_back(newD);
+            attrAry.shrink_to_fit();
+            numMembers += 3;
         }
         void addDouble (const double* & d, const int length)
         {
             for(int x = 0; x < length; x++){
                 doublePointer newD;
                 newD.d = d[x];
-                colorAttr.push_back(newD);
+                attrAry.push_back(newD);
             }
+            attrAry.shrink_to_fit();
+            numMembers += length;
         }
         void addPtr (void * ptr)
         {
             doublePointer newPtr;
             newPtr.ptr = ptr;
-            colorAttr.push_back(newPtr);
+            attrAry.push_back(newPtr);
+            attrAry.shrink_to_fit();
+            numMembers++;
         }
-        void clear() {colorAttr.clear();}
+        void clear() {attrAry.clear(); numMembers = 0;}
         // Const Return operator
-        const doublePointer & operator[](const int & i) const {return colorAttr[i];}
+        const doublePointer & operator[](const int & i) const {return attrAry[i];}
         // Return operator
-        doublePointer & operator[](const int & i) {return colorAttr[i];}
+        doublePointer & operator[](const int & i) {return attrAry[i];}
 };
 
 // Example of a fragment shader

@@ -26,9 +26,20 @@ void ColorFragShader(PIXEL & fragment, const Attributes & vertAttr, const Attrib
 //My Vertex Shader
 void BasicVertexShader(Vertex & vertOut, Attributes & attrOut, const Vertex & vertIn, const Attributes & vertAttr, const Attributes & uniforms)
 {
-    Matrix mat = uniforms.matrix;
-    vertOut = mat.multi(vertIn);
+    Matrix* mat = (Matrix*)uniforms.attrAry[0].ptr;
+    vertOut = (*mat) * vertIn;
     attrOut = vertAttr;
+}
+
+void BasicVertexShader2(Vertex & vertOut, Attributes & attrOut, const Vertex & vertIn, 
+                        const Attributes & attrIn, const Attributes & uniforms)
+{
+    Matrix* model = (Matrix*)uniforms[1].ptr;
+    Matrix* view = (Matrix*)uniforms[2].ptr;
+    Matrix* proj = (Matrix*)uniforms[3].ptr;
+    Matrix temp = (*proj) * (*view) * (*model);
+    vertOut = temp * vertIn;
+    attrOut = attrIn;
 }
 
 /****************************************
