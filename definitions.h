@@ -235,7 +235,7 @@ class Matrix
         {
             Matrix trans = Matrix().trans(-x, -y, -z);
             //rot arount Y is yaw, rot around X is pitch, rot around z is roll
-            Matrix rotation = Matrix().rotate(-pitch, -yaw, -roll);
+            Matrix rotation = Matrix().rotate(-pitch, -yaw, 0);//-roll);
             return rotation.multi(trans.matrix4);
         }
         Matrix perspective(const double & fovY, const double & aspectRatio, 
@@ -243,7 +243,7 @@ class Matrix
         {
             double top = near * tan((fovY * M_PI / 180.0) / 2.0);
 		    double right = aspectRatio * top;
-            double perspective[4][4] = { {near/right, 0, 0, 0 },
+            double perspective[4][4] = { {near/right, 0, 0, 0},
                                          {0, near/top, 0, 0},
                                          {0, 0, (far+near)/(far-near), (-2*far*near)/(far-near)},
                                          {0, 0, 1, 0} };
@@ -258,13 +258,25 @@ class Matrix
         Matrix scale(double x, double y, double z) { return Matrix(x,y,z); }
         Matrix rotate(double x, double y, double z)
         {
+            Matrix matr = Matrix();
             double cosX = cos(x * M_PI/180); double cosY = cos(y * M_PI/180); double cosZ = cos(z * M_PI/180);
             double sinX = sin(x * M_PI/180); double sinY = sin(y * M_PI/180); double sinZ = sin(z * M_PI/180);
-            double xAxis[4][4] = {{1,0,0,0}, {0,cosX,-sinX,0}, {0,sinX,cosX,0}, {0,0,0,1}};
-            double yAxis[4][4] = {{cosY,0,sinY,0}, {0,1,0,0}, {-sinY,0,cosY,0}, {0,0,0,1}};
-            double zAxis[4][4] = {{cosZ,-sinZ,0,0}, {sinZ,cosZ,0,0}, {0,0,1,0}, {0,0,0,1}};
-            Matrix xMatr = Matrix(xAxis);
-            return xMatr.multi(yAxis).multi(zAxis);
+            if(x != 0)
+            {
+                double xAxis[4][4] = {{1,0,0,0}, {0,cosX,-sinX,0}, {0,sinX,cosX,0}, {0,0,0,1}};
+                matr = matr.multi(xAxis);
+            }
+            if(y != 0)
+            {
+                double yAxis[4][4] = {{cosY,0,sinY,0}, {0,1,0,0}, {-sinY,0,cosY,0}, {0,0,0,1}};
+                matr = matr.multi(yAxis);
+            }
+            if(z != 0)
+            {
+                double zAxis[4][4] = {{cosZ,-sinZ,0,0}, {sinZ,cosZ,0,0}, {0,0,1,0}, {0,0,0,1}};
+                matr = matr.multi(zAxis);
+            }
+            return matr;
         }
         Matrix multi(double matrix[4][4])
         {
@@ -282,6 +294,7 @@ class Matrix
             }
             return Matrix(multi);
         }
+        Matrix operator*(Matrix & matrix) { return multi(matrix.matrix4); }
         Matrix operator*(const Matrix & matrix) const
         {
             double multi[4][4];
@@ -356,6 +369,17 @@ class Attributes
                 addDouble(d);
             }
         }
+        Attributes(vector<doublePointer> arr)
+        {
+            attrAry.reserve(8);
+            for (auto it = arr.begin(); it != arr.end(); ++it)
+            {
+                doublePointer p = *it;
+                attrAry.push_back(*it);
+                numMembers++;
+            }
+            attrAry.shrink_to_fit();
+        }
         void addDouble (const double & d)
         {
             doublePointer newD;
@@ -376,6 +400,16 @@ class Attributes
             attrAry.shrink_to_fit();
             numMembers += 3;
         }
+        void addDouble (const double & d0, const double & d1)
+        {
+            doublePointer newD;
+            newD.d = d0;
+            attrAry.push_back(newD);
+            newD.d = d1;
+            attrAry.push_back(newD);
+            attrAry.shrink_to_fit();
+            numMembers += 2;
+        }
         void addDouble (const double* & d, const int length)
         {
             for(int x = 0; x < length; x++){
@@ -394,7 +428,21 @@ class Attributes
             attrAry.shrink_to_fit();
             numMembers++;
         }
-        void clear() {attrAry.clear(); numMembers = 0;}
+        void replacePtr (int index, void * ptr)
+        {
+            doublePointer newPtr;
+            newPtr.ptr = ptr;
+            auto i = attrAry.begin() + index;
+            attrAry.erase(i);
+            attrAry.emplace(i, newPtr);
+            attrAry.shrink_to_fit();
+        }
+        void clear()
+        {
+            attrAry.clear();
+            attrAry.shrink_to_fit();
+            numMembers = 0;
+        }
         // Const Return operator
         const doublePointer & operator[](const int & i) const {return attrAry[i];}
         // Return operator

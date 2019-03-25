@@ -49,6 +49,7 @@ void processUserInputs(bool & running)
     {
         if(e.type == SDL_QUIT) running = false;
         if(e.key.keysym.sym == 'q' && e.type == SDL_KEYDOWN) running = false;
+        if(e.key.keysym.sym == 'g' && e.type == SDL_KEYDOWN) flipSetup();
         if(e.type == SDL_MOUSEMOTION)
         {
             int cur = SDL_ShowCursor(SDL_QUERY);
@@ -80,26 +81,26 @@ void processUserInputs(bool & running)
         if(e.key.keysym.sym == 'w' && e.type == SDL_KEYDOWN)
         {
             double yawR = myCam.yaw * (M_PI/180.0);
-            myCam.x -= sin(yawR) * 0.05;
-            myCam.z += cos(yawR) * 0.05;
+            myCam.x -= sin(yawR) * 0.5;
+            myCam.z += cos(yawR) * 0.5;
         }
         if(e.key.keysym.sym == 's' && e.type == SDL_KEYDOWN)
         {
             double yawR = myCam.yaw * (M_PI/180.0);
-            myCam.x += sin(yawR) * 0.05;
-            myCam.z -= cos(yawR) * 0.05;
+            myCam.x += sin(yawR) * 0.5;
+            myCam.z -= cos(yawR) * 0.5;
         }
         if(e.key.keysym.sym == 'a' && e.type == SDL_KEYDOWN)
         {
             double yawR = myCam.yaw * (M_PI/180.0);
-            myCam.x -= cos(yawR) * 0.05;
-            myCam.z -= sin(yawR) * 0.05;
+            myCam.x -= cos(yawR) * 0.5;
+            myCam.z -= sin(yawR) * 0.5;
         }
         if(e.key.keysym.sym == 'd' && e.type == SDL_KEYDOWN)
         {
             double yawR = myCam.yaw * (M_PI/180.0);
-            myCam.x += cos(yawR) * 0.05;
-            myCam.z += sin(yawR) * 0.05;
+            myCam.x += cos(yawR) * 0.5;
+            myCam.z += sin(yawR) * 0.5;
         }
     }
 }
@@ -149,9 +150,9 @@ void DrawTriangle(Buffer2D<PIXEL> & target, Vertex* const triangle, Attributes* 
     //area of the whole triangle
     double area = determinant(-edge1[0], edge0[0], -edge1[1], edge0[1]);
 
-    for (int x = minX; x <= maxX; x++)
+    for (int y = minY; y <= maxY; y++)
     {
-        for (int y = minY; y <= maxY; y ++)
+        for (int x = minX; x <= maxX; x ++)
         {
             //area of each segment
             double area0 = determinant(triangle[2].x - x, edge0[0], triangle[2].y - y, edge0[1])/area;
@@ -163,9 +164,11 @@ void DrawTriangle(Buffer2D<PIXEL> & target, Vertex* const triangle, Attributes* 
                 //Interpolate attributes
                 double Z = 1/((triangle[0].w*area0) + (triangle[1].w*area1) + (triangle[2].w*area2));
                 Attributes interAttr(attrs, area0, area1, area2, Z);
-
+                int h = target.height(); int w = target.width();
                 //frag callback -> coloring the fragment(in this case pixel)
-                frag -> FragShader(target[y][x], interAttr, *uniforms);
+                //if(x >= w) x -= (w-2);
+                if(x < h && y < w && x > 0 && y > 0)
+                    frag -> FragShader(target[y][x], interAttr, *uniforms);
             }
         }
     }
@@ -187,13 +190,11 @@ void VertexShaderExecuteVertices(const VertexShader* vert, Vertex const inputVer
             transformedVerts[i] = inputVerts[i];
             transformedAttrs[i] = inputAttrs[i];
         }
+        return;
     }
-    else 
+    for(int i = 0; i < numIn; i++)
     {
-        for(int i = 0; i < numIn; i++)
-        {
-            vert->VertShader(transformedVerts[i], transformedAttrs[i], inputVerts[i], inputAttrs[i], *uniforms);
-        }
+        vert->VertShader(transformedVerts[i], transformedAttrs[i], inputVerts[i], inputAttrs[i], *uniforms);
     }
 }
 
@@ -235,14 +236,14 @@ Vertex VertexBetweenVerts(const Vertex & vertA, const Vertex & vertB, const doub
 void clipVerticies(Vertex const transformedVerts[], Attributes const transformedAttrs[],
                      const int & numIn, Vertex clippedVerts[], Attributes clippedAttrs[], int & numClipped)
 {
-    /*Pass-through
+    /*/Pass-through
     numClipped = numIn;
     for(int i = 0; i < numClipped; i++)
     {
         clippedVerts[i] = transformedVerts[i];
         clippedAttrs[i] = transformedAttrs[i];
-    }*/
-    
+    }
+    */
     //TMP clip buffers
     int num;
     int numOut;
@@ -556,7 +557,7 @@ void clipVerticies(Vertex const transformedVerts[], Attributes const transformed
     }
 
     //Final number of output verticies
-    numClipped = numOut;
+    numClipped = numOut;//
 }
 
 void normalizeVerticies(Vertex clippedVerts[], Attributes clippedAttrs[], int const &numClipped)
@@ -632,15 +633,15 @@ void DrawPrimitive(PRIMITIVES prim,
     //Clipping
     Vertex clippedVerts[MAX_VERTICES];
     Attributes clippedAttrs[MAX_VERTICES];
-    int numClipped;
+    int numClipped = numIn;
     clipVerticies(transformedVerts, transformedAttrs, numIn, clippedVerts, clippedAttrs, numClipped);
     //Normalize
     normalizeVerticies(clippedVerts, clippedAttrs, numClipped);
     //Adapt viewport
     viewPortTransform(target, clippedVerts, numClipped);
-    double numAttr4[6] = {clippedAttrs[0][0].d, clippedAttrs[0][1].d, 
+    /*double numAttr4[6] = {clippedAttrs[0][0].d, clippedAttrs[0][1].d, 
                         clippedAttrs[1][0].d, clippedAttrs[1][1].d,
-                        clippedAttrs[2][0].d, clippedAttrs[2][1].d};
+                        clippedAttrs[2][0].d, clippedAttrs[2][1].d};*/
 
     // Vertex Interpolation & Fragment Drawing
     switch(prim)
@@ -699,8 +700,9 @@ int main()
         clearScreen(frame);
 
         // TODO Your code goes here
-            //TestMarshmallowFrag(frame);
-            TestPipeline(frame);
+            TestMarshmallowFrag(frame);
+            //CADView(frame);
+            //TestPipeline(frame);
             //TestVertexShader(frame);
             //TestDrawPerspectiveCorrect(frame);
             //TestDrawFragments(frame);

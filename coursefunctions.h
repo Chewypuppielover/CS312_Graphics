@@ -89,6 +89,7 @@ void GameOfLife(Buffer2D<PIXEL> & target)
  * NOTE: Assumes that the resolution is an even 
  * value in both dimensions.
  **************************************************/
+void TestPipeline(Buffer2D<PIXEL> & target);
 void CADView(Buffer2D<PIXEL> & target)
 {
         // Each CAD Quadrant
@@ -99,9 +100,78 @@ void CADView(Buffer2D<PIXEL> & target)
         static Buffer2D<PIXEL> botLeft(halfWid, halfHgt);
         static Buffer2D<PIXEL> botRight(halfWid, halfHgt);
 
-        // Your code goes here 
-        // Feel free to copy from other test functions to get started!
+        double coordinates[4][2] = { {0,0}, {1,0}, {1,1}, {0,1} };
+        Attributes imageAttributesA[3];
+        imageAttributesA[0].addDouble(coordinates[0][0], coordinates[0][1]);
+        imageAttributesA[1].addDouble(coordinates[1][0], coordinates[1][1]);
+        imageAttributesA[2].addDouble(coordinates[2][0], coordinates[2][1]);
+        Attributes imageAttributesB[3];
+        imageAttributesB[0].addDouble(coordinates[2][0], coordinates[2][1]);
+        imageAttributesB[1].addDouble(coordinates[3][0], coordinates[3][1]);
+        imageAttributesB[2].addDouble(coordinates[0][0], coordinates[0][1]);
 
+        Matrix model = Matrix();
+        Matrix view = Matrix().camera(myCam.x, myCam.y, myCam.z, myCam.yaw, myCam.pitch, myCam.roll);
+        //Matrix viewF = view;
+        Matrix viewT = view.rotate(-90, 0, 0) * Matrix().trans(0, -60, 0);
+        Matrix viewS = view.rotate(0, 90, 0) * Matrix().trans(-60, 0, 0);
+        double NEAR = 1; double FAR = 200;
+        double LEFT = -60; double RIGHT = 60;
+        double BOTTOM = -60; double TOP = 60;
+        double orth[4][4] = { {2/(RIGHT-LEFT), 0, 0, -(RIGHT+LEFT)/(RIGHT-LEFT)},
+                              {0,2/(TOP-BOTTOM),0, -(TOP+BOTTOM)/(TOP-BOTTOM)},
+                              {0,0,2/(FAR-NEAR), -(FAR+NEAR)/(FAR-NEAR)}, {0,0,0,1} };
+        Matrix orthog = Matrix(orth);
+        Matrix proj = Matrix().perspective(abs(RIGHT-LEFT), 1, NEAR, FAR); //FOV, Aspect, Near, Far
+        
+        static BufferImage checkerImage("checker.bmp");
+        Attributes mainImageUniforms;
+        mainImageUniforms.addPtr((void*)&checkerImage);
+        mainImageUniforms.addPtr((void*)&model);
+        mainImageUniforms.addPtr((void*)&view);
+        mainImageUniforms.addPtr((void*)&proj);
+        
+        Attributes otherUniformsF;
+        otherUniformsF.addPtr((void*)&checkerImage);
+        otherUniformsF.addPtr((void*)&model);
+        otherUniformsF.addPtr((void*)&view);
+        otherUniformsF.addPtr((void*)&orthog);
+        Attributes otherUniformsT;
+        otherUniformsT.addPtr((void*)&checkerImage);
+        otherUniformsT.addPtr((void*)&model);
+        otherUniformsT.addPtr((void*)&viewT);
+        otherUniformsT.addPtr((void*)&orthog);
+        Attributes otherUniformsS;
+        otherUniformsS.addPtr((void*)&checkerImage);
+        otherUniformsS.addPtr((void*)&model);
+        otherUniformsS.addPtr((void*)&viewS);
+        otherUniformsS.addPtr((void*)&orthog);
+
+        FragmentShader fragImg;
+        fragImg.FragShader = ImageFragShader;
+        VertexShader vertImg;
+        vertImg.VertShader = BasicVertexShader2;
+
+        topLeft.zeroOut();
+        topRight.zeroOut();
+        botLeft.zeroOut();
+        botRight.zeroOut();
+        
+        Vertex quad[] = { {-20,-20, 30, 1}, {20, -20, 50, 1}, {20, 20, 70, 1}, {-20,20, 50, 1}};
+        Vertex verticesImgA[3] = { quad[0], quad[1], quad[2] };
+        Vertex verticesImgB[3] = { quad[2], quad[3], quad[0] };
+
+        DrawPrimitive(TRIANGLE, topLeft, verticesImgA, imageAttributesA, &mainImageUniforms, &fragImg, &vertImg);
+        DrawPrimitive(TRIANGLE, topLeft, verticesImgB, imageAttributesB, &mainImageUniforms, &fragImg, &vertImg);
+        DrawPrimitive(TRIANGLE, topRight, verticesImgA, imageAttributesA, &otherUniformsF, &fragImg, &vertImg);
+        DrawPrimitive(TRIANGLE, topRight, verticesImgB, imageAttributesB, &otherUniformsF, &fragImg, &vertImg);
+        DrawPrimitive(TRIANGLE, botLeft, verticesImgA, imageAttributesA, &otherUniformsT, &fragImg, &vertImg);
+        DrawPrimitive(TRIANGLE, botLeft, verticesImgB, imageAttributesB, &otherUniformsT, &fragImg, &vertImg);
+        DrawPrimitive(TRIANGLE, botRight, verticesImgA, imageAttributesA, &otherUniformsS, &fragImg, &vertImg);
+        DrawPrimitive(TRIANGLE, botRight, verticesImgB, imageAttributesB, &otherUniformsS, &fragImg, &vertImg);
+        
+        //testCAD(topLeft, topRight, botLeft, botRight);
+        
         // Blit four panels to target
         int yStartSrc = 0;
         int xStartSrc = 0;
@@ -115,6 +185,10 @@ void CADView(Buffer2D<PIXEL> & target)
                         target[ySrc][xSrc+halfWid]         = botRight[ySrc][xSrc];
                         target[ySrc+halfHgt][xSrc]         = topLeft[ySrc][xSrc];
                         target[ySrc+halfHgt][xSrc+halfWid] = topRight[ySrc][xSrc];
+                        target[yLimitSrc][xSrc]               = 0xff00ff00;
+                        target[yLimitSrc][xSrc+halfWid]       = 0xff00ff00;
+                        target[ySrc][xLimitSrc]               = 0xff00ff00;
+                        target[ySrc+halfHgt][xLimitSrc]       = 0xff00ff00;
                 }
         }
 }
@@ -333,6 +407,8 @@ void TestVertexShader(Buffer2D<PIXEL> & target)
         myColorFragShader.FragShader = ColorFragShader;
 
         Attributes colorUniforms;
+        Matrix view = Matrix().camera(myCam.x, myCam.y, myCam.z, myCam.yaw, myCam.pitch, myCam.roll);
+        Matrix proj = Matrix().perspective(60.0, 1, 1, 200); //FOV, Astpect, Near, Far
 
         VertexShader myColorVertexShader;
         myColorVertexShader.VertShader = BasicVertexShader;
@@ -346,7 +422,10 @@ void TestVertexShader(Buffer2D<PIXEL> & target)
            0 0   1*/
         Matrix trans = Matrix().trans(100,50,0);
         colorUniforms.addPtr((void*)&trans);
+        colorUniforms.addPtr((void*)&view);
+        colorUniforms.addPtr((void*)&proj);
 	DrawPrimitive(TRIANGLE, target, colorTriangle, colorAttributes, &colorUniforms, &myColorFragShader, &myColorVertexShader);
+        colorUniforms.clear();
 
         /***********************************
          * SCALE (scale by a factor of 0.5)
@@ -354,7 +433,10 @@ void TestVertexShader(Buffer2D<PIXEL> & target)
         // Your scaling code that integrates with 'colorUniforms', used by 'myColorVertexShader' goes here
         Matrix scale = Matrix().scale(0.5,0.5,1);
         colorUniforms.addPtr((void*)&scale);
+        colorUniforms.addPtr((void*)&view);
+        colorUniforms.addPtr((void*)&proj);
         DrawPrimitive(TRIANGLE, target, colorTriangle, colorAttributes, &colorUniforms, &myColorFragShader, &myColorVertexShader);
+        colorUniforms.clear();
 
         /**********************************************
          * ROTATE 30 degrees in the X-Y plane around Z
@@ -362,7 +444,10 @@ void TestVertexShader(Buffer2D<PIXEL> & target)
         // Your rotation code that integrates with 'colorUniforms', used by 'myColorVertexShader' goes here
         Matrix rotate = Matrix().rotate(0,0,29.5);
         colorUniforms.addPtr((void*)&rotate);
+        colorUniforms.addPtr((void*)&view);
+        colorUniforms.addPtr((void*)&proj);
         DrawPrimitive(TRIANGLE, target, colorTriangle, colorAttributes, &colorUniforms, &myColorFragShader, &myColorVertexShader);
+        colorUniforms.clear();
 
         /*************************************************
          * SCALE-TRANSLATE-ROTATE in left-to-right order
@@ -371,6 +456,8 @@ void TestVertexShader(Buffer2D<PIXEL> & target)
         // Your scale-translate-rotation code that integrates with 'colorUniforms', used by 'myColorVertexShader' goes here
         Matrix all = (rotate * trans * scale);
         colorUniforms.addPtr((void*)&all);
+        colorUniforms.addPtr((void*)&view);
+        colorUniforms.addPtr((void*)&proj);
         DrawPrimitive(TRIANGLE, target, colorTriangle, colorAttributes, &colorUniforms, &myColorFragShader, &myColorVertexShader);	
 }
 
@@ -407,43 +494,21 @@ void TestPipeline(Buffer2D<PIXEL> & target)
                           {20, -20, 50, 1},
                           {20, 20, 50, 1},
                           {-20,20, 50, 1}};
-
-        Vertex verticesImgA[3];
-        Attributes imageAttributesA[3];
-        verticesImgA[0] = quad[0];
-        verticesImgA[1] = quad[1];
-        verticesImgA[2] = quad[2];
-
-        Vertex verticesImgB[3];        
-        Attributes imageAttributesB[3];
-        verticesImgB[0] = quad[2];
-        verticesImgB[1] = quad[3];
-        verticesImgB[2] = quad[0];
+        Vertex verticesImgA[3] = { quad[0], quad[1], quad[2] };
+        Vertex verticesImgB[3] = { quad[2], quad[3], quad[0] };
 
         double coordinates[4][2] = { {0,0}, {1,0}, {1,1}, {0,1} };
-        // Your texture coordinate code goes here for 'imageAttributesA, imageAttributesB'
-        imageAttributesA[0].addDouble(coordinates[0][0]);
-        imageAttributesA[0].addDouble(coordinates[0][1]);
-        imageAttributesA[1].addDouble(coordinates[1][0]);
-        imageAttributesA[1].addDouble(coordinates[1][1]);
-        imageAttributesA[2].addDouble(coordinates[2][0]);
-        imageAttributesA[2].addDouble(coordinates[2][1]);
-        
-        imageAttributesB[0].addDouble(coordinates[2][0]);
-        imageAttributesB[0].addDouble(coordinates[2][1]);
-        imageAttributesB[1].addDouble(coordinates[3][0]);
-        imageAttributesB[1].addDouble(coordinates[3][1]);
-        imageAttributesB[2].addDouble(coordinates[0][0]);
-        imageAttributesB[2].addDouble(coordinates[0][1]);
-        /*
-        int sizeA0 = imageAttributesA[0].numMembers;
-        int sizeB0 = imageAttributesB[0].numMembers;
-        int sizeA1 = imageAttributesA[1].numMembers;
-        int sizeB1 = imageAttributesB[1].numMembers;
-        int sizeA2 = imageAttributesA[2].numMembers;
-        int sizeB2 = imageAttributesB[2].numMembers;
-        */
-        static BufferImage myImage("checker.bmp");
+        Attributes imageAttributesA[3];
+        Attributes imageAttributesB[3];
+        imageAttributesA[0].addDouble(coordinates[0][0], coordinates[0][1]);
+        imageAttributesA[1].addDouble(coordinates[1][0], coordinates[1][1]);
+        imageAttributesA[2].addDouble(coordinates[2][0], coordinates[2][1]);
+        imageAttributesB[0].addDouble(coordinates[2][0], coordinates[2][1]);
+        imageAttributesB[1].addDouble(coordinates[3][0], coordinates[3][1]);
+        imageAttributesB[2].addDouble(coordinates[0][0], coordinates[0][1]);
+
+
+        static BufferImage myImage("marshmallowSide.bmp"); //checker.bmp");
         // Ensure the checkboard image is in this directory, you can use another image though
         Attributes imageUniforms;
         Matrix model = Matrix();
