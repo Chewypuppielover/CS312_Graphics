@@ -19,26 +19,25 @@ FragmentShader fragImg;
 VertexShader vertImg;
     static BufferImage myImage("marshmallow.bmp");
     static BufferImage myImage2("marshmallowSide.bmp");
-static Matrix model = Matrix();
-static Matrix view;
+static Matrix model;
+static Matrix view = Matrix().camera(myCam.x, myCam.y, myCam.z, myCam.yaw, myCam.pitch, myCam.roll);
 static Matrix oposite;
 static Matrix proj = Matrix().perspective(60.0, 1, 1, 200); //FOV, Astpect, Near, Far
-//Matrix view = Matrix().camera(myCam.x, myCam.y, myCam.z, myCam.yaw, myCam.pitch, myCam.roll);
 
 void wormMotion(Buffer2D<PIXEL> & target)
 {
     static bool clockwise = true;
-    view = view * view.trans(0,1,0);
-    oposite = oposite * oposite.trans(0,1,0);
+    model = model * Matrix().trans(0,1,0);
+    oposite = oposite * Matrix().trans(0,1,0);
     if(clockwise) 
     {
-        view = view * view.rotate(0, 0, -5);
-        oposite = oposite * oposite.rotate(0, 0, 5);
+        model = model * Matrix().rotate(0, 0, -5);
+        oposite = oposite * Matrix().rotate(0, 0, 5);
     }
     else 
     {
-        view = view * view.rotate(0, 0, 5);
-        oposite = oposite * oposite.rotate(0, 0, -5);
+        model = model * Matrix().rotate(0, 0, 5);
+        oposite = oposite * Matrix().rotate(0, 0, -5);
     }
     iter++;
     if(iter == 10)
@@ -49,8 +48,8 @@ void wormMotion(Buffer2D<PIXEL> & target)
 
     Attributes imageUniforms2;
     imageUniforms2.addPtr((void*)&myImage2);
-    imageUniforms2.addPtr((void*)&model);
     imageUniforms2.addPtr((void*)&oposite);
+    imageUniforms2.addPtr((void*)&view);
     imageUniforms2.addPtr((void*)&proj);
 
     static Vertex verticesImgA[3] = { quad[0], quad[1], quad[2] };
@@ -85,7 +84,7 @@ void TestMarshmallowFrag(Buffer2D<PIXEL> & target)
         coordinates[2][0] = 1; coordinates[2][1] = 1; coordinates[3][0] = 0; coordinates[3][1] = 1;
         fragImg.FragShader = ImageFragShader;
         vertImg.VertShader = ProjectVertexShader;
-        view = Matrix();
+        model = Matrix();
         oposite = Matrix().rotate(0, 0, 90) * Matrix().trans(3*X, 0, 0);
             imageUniforms.clear();
             imageUniforms.addPtr((void*)&myImage);
@@ -122,7 +121,7 @@ void TestMarshmallowFrag(Buffer2D<PIXEL> & target)
                 quad[1] = {2*X, 0, 80, 1};
                 quad[2] = {2*X,  2*Y, 80, 1};
                 quad[3] = {0, 2*Y, 80, 1};
-                view = view * view.trans(-Y, -Y, 0);
+                model = model * Matrix().trans(-Y, -Y, 0);
                 SDL_Delay(500);
                 break;
             case 1:
@@ -136,17 +135,16 @@ void TestMarshmallowFrag(Buffer2D<PIXEL> & target)
             case 2:
                 rotate++;
                 if (rotate < 18) counter--;
-                view = view.trans(-Y, -Y+(1.5*rotate), 0) * view.rotate(0, 0, -5*rotate);
+                model = Matrix().trans(-Y, -Y+(1.5*rotate), 0) * Matrix().rotate(0, 0, -5*rotate);
                 break;
             case 3:
                 quad[0] = {-X, -Y, 80, 1};
                 quad[1] = { X, -Y, 80, 1};
                 quad[2] = { X,  Y, 80, 1};
                 quad[3] = {-X,  Y, 80, 1};
-                view = Matrix().trans(0, -X, 0) * Matrix().rotate(0,0,-90);
+                model = Matrix().trans(0, -X, 0) * Matrix().rotate(0,0,-90);
             default:
                 wormMotion(target);
-                //if(view.matrix4[0][3] == (target.width()-Y)) view.matrix4[0][3] = -3*Y;
                 break;
         }
         counter++;
