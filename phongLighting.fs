@@ -5,12 +5,12 @@ uniform vec3 u_MaterialAmbient;
 uniform vec3 u_MaterialDiffuse;
 uniform vec3 u_MaterialSpecular;
 uniform float u_MaterialShine;
+uniform vec3 u_LightPos;
+    vec3 lightColor = vec3(1.0f, 1.0f, 1.0f); //vec3(1.0f, 0.0f, 0.0f);
 
 varying vec2 v_UV;
 varying vec3 v_Normal;
 varying vec3 v_FragPos;
-    vec3 lightColor = vec3(1.0f, 1.0f, 1.0f); //vec3(1.0f, 0.0f, 0.0f); 
-    vec3 lightPos = vec3(1.2f, 1.0f, 2.0f);
 
 
 void main()
@@ -25,7 +25,7 @@ void main()
   	
     // diffuse 
     vec3 norm = normalize(v_Normal);
-    vec3 lightDir = normalize(lightPos - v_FragPos);
+    vec3 lightDir = normalize(u_LightPos - v_FragPos);
     float diff = max(dot(norm, lightDir), 0.0);
     vec3 diffuse = (diff*u_MaterialDiffuse) * lightColor;
     

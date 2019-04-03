@@ -117,6 +117,7 @@ int main(int argc, char **argv)
 	int uMaterialD = glGetUniformLocation(programID, "u_MaterialDiffuse");
 	int uMaterialS = glGetUniformLocation(programID, "u_MaterialSpecular");
 	int uMaterialShine = glGetUniformLocation(programID, "u_MaterialShine");
+	int uLightHandle = glGetUniformLocation(programID, "u_LightPos");
 
 	// MVP Data for transforming vertices
 	mat4 mvp;	  
@@ -160,6 +161,7 @@ int main(int argc, char **argv)
 			glUniform1i(uTextureHandle, 0);
 			glUniform1f(uThresholdHandle, threshold);
 			glUniform3f(uCameraHandle, myCam.camX, myCam.camY, myCam.camZ);
+			glUniform3f(uLightHandle, 1.2f, 1.0f, 2.0f);
 			
 			glUniform3f(uMaterialA, materials[0].Ka[0], materials[0].Ka[1], materials[0].Ka[2]);
 			glUniform3f(uMaterialD, materials[0].Kd[0], materials[0].Kd[1], materials[0].Kd[2]);
