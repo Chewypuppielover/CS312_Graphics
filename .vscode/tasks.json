@@ -17,6 +17,22 @@
             ],
             "group": "build",
             "problemMatcher": []
+        },
+        {
+            "label": "BldGLFile",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "${workspaceRoot}/gl.cpp",
+                "-lopengl32",
+                "-lglew32",
+                "-lSDL2",
+                "-lmingw32",
+                "-o",
+                "${workspaceRoot}/GL.exe",
+            ],
+            "group": "build",
+            "problemMatcher": []
         }
     ]
 }    

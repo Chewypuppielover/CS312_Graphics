@@ -4,26 +4,47 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-    {
-    "preLaunchTask": "BldFile",
-    "name": "(gdb) Launch",
-    "type": "cppdbg",
-    "request": "launch",
-    "program": "${workspaceFolder}\\pipeline.exe",
-    "args": [],
-    "stopAtEntry": false,
-    "cwd": "${workspaceFolder}",
-    "environment": [],
-    "externalConsole": true,
-    "MIMode": "gdb",
-    "miDebuggerPath": "c:\\MinGw\\bin\\gdb.exe",
-    "setupCommands": [
-    {
-    "description": "Enable pretty-printing for gdb",
-    "text": "-enable-pretty-printing",
-    "ignoreFailures": true
-    }
-    ]
-    }
+        {
+            "preLaunchTask": "BldGLFile",
+            "name": "(gdb) LaunchGL",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/GL.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "c:\\MinGw\\bin\\gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "preLaunchTask": "BldFile",
+            "name": "(gdb) LaunchPipeline",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}\\pipeline.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "miDebuggerPath": "c:\\MinGw\\bin\\gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
     ]
     }
