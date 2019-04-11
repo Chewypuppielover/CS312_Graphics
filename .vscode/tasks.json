@@ -26,6 +26,7 @@
                 "${workspaceRoot}/gl.cpp",
                 "-lopengl32",
                 "-lglew32",
+                "-g",
                 "-lSDL2",
                 "-lmingw32",
                 "-o",
@@ -35,4 +36,4 @@
             "problemMatcher": []
         }
     ]
-}    
+}

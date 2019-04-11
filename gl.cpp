@@ -1,6 +1,7 @@
 #define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
 #include "gl.h"
+#include "tree.h"
 
 // To compile: g++ gl.cpp -lopengl32 -lglew32 -lSDL2 -lmingw32
 int main(int argc, char **argv)
@@ -19,21 +20,36 @@ int main(int argc, char **argv)
 	SDL_GL_SetSwapInterval(1);
 	SDL_GLContext cont = SDL_GL_CreateContext(win);
 	SDL_GL_MakeCurrent(win, cont);
-	glewInit();  
+	glewInit();
 	glEnable(GL_DEPTH_TEST);
 
 	bool success = true;
-	string vertexShader;
-	string fragmentShader;
-	int vertexID;
-	int fragID; 
-	int programID;
-	success &= parseFile((char*)"phongLighting.vs", vertexShader);
-	success &= parseFile((char*)"phongLighting.fs"  , fragmentShader);
-	success &= compileShader(vertexShader.c_str(), GL_VERTEX_SHADER, vertexID);
-	success &= compileShader(fragmentShader.c_str(), GL_FRAGMENT_SHADER, fragID);
-	success &= compileProgram(vertexID, fragID, programID);
+	string bunnyVertexShader;
+	string bunnyFragmentShader;
+	int bunnyVertexID;
+	int bunnyFragID;
+	int bunnyProgram;
+	success &= parseFile((char*)"phongLighting.vs", bunnyVertexShader);
+	success &= parseFile((char*)"phongLighting.fs"  , bunnyFragmentShader);
+	success &= compileShader(bunnyVertexShader.c_str(), GL_VERTEX_SHADER, bunnyVertexID);
+	success &= compileShader(bunnyFragmentShader.c_str(), GL_FRAGMENT_SHADER, bunnyFragID);
+	success &= compileProgram(bunnyVertexID, bunnyFragID, bunnyProgram);
 
+	string floorVertexShader;
+	string floorFragmentShader;
+	int floorVertexID;
+	int floorFragID;
+	int floorProgram;
+	int checkerID;
+	success &= parseFile((char*)"vertex.vs", floorVertexShader);
+	success &= parseFile((char*)"fragment.fs"  , floorFragmentShader);
+	success &= compileShader(floorVertexShader.c_str(), GL_VERTEX_SHADER, floorVertexID);
+	success &= compileShader(floorFragmentShader.c_str(), GL_FRAGMENT_SHADER, floorFragID);
+	success &= compileProgram(floorVertexID, floorFragID, floorProgram);
+    success &= loadTexture("checker.bmp", checkerID);
+
+	int treeProgram;
+	setupTree(treeProgram);
 	/***************************************************************************************
 	* OBJECT LOADER - Vertices, UVs, Normals, etc
 	***************************************************************************************/  
@@ -42,7 +58,6 @@ int main(int argc, char **argv)
 	bool hasUV;
 	bool hasNormal;  
 	success &= getObjData("bunny.obj", materials, vertexBuffer, hasUV, hasNormal);
-	//success &= getObjData("pot.obj", materials, vertexBuffer, hasUV, hasNormal);
 
 	// Build out a single array of float data 
 	int stride = 3 + (2*hasUV) + (3*hasNormal);
@@ -69,7 +84,6 @@ int main(int argc, char **argv)
 			vertexBufferData[i++] = vertexBuffer[vb].normal[2];
 		}
 	}
-
 	// Load in each texture 
 	vector<int> textureIDs;	
 	for(int mat = 0; mat < materials.size(); mat++)
@@ -80,6 +94,26 @@ int main(int argc, char **argv)
 		textureIDs.push_back(tmp);
 	}
 	validate(success, (char*)"Setup OpenGL Program");
+	
+	float planeVertices[] = {
+        -1, -1,  0,   0, 0,
+		 1, -1,  0,   1, 0,
+		 1,  1, -1,   1, 1,
+
+		 1,  1, -1,   0, 0, //1, 1,
+		-1,  1, -1,   0, 1, //0, 1
+        -1, -1,  0,   1, 1, //0, 0,
+    };
+    // plane VAO
+    unsigned int planeVBO;
+    glGenBuffers(1, &planeVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices, GL_STATIC_DRAW);
+	int aFPositionHandle = glGetAttribLocation(floorProgram, "a_Position");
+	int aFUVHandle = glGetAttribLocation(floorProgram, "a_UV");
+	int uFTextureHandle = glGetUniformLocation(floorProgram, "u_Texture");
+	int uFThresholdHandle = glGetUniformLocation(floorProgram, "u_Threshold");
+	int uFMatrixHandle = glGetUniformLocation(floorProgram, "u_Matrix");
 
 	/***************************************************************************************
 	* VERTEX BUFFER OBJECT - Vertex data AND Attributes
@@ -90,37 +124,33 @@ int main(int argc, char **argv)
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	glBufferData(GL_ARRAY_BUFFER, vertexBufferNumBytes, vertexBufferData, GL_STATIC_DRAW);
 
-	float data[] = { -0.5, -0.5, 1.0, 
-					 0.5,  -0.5, 1.0, 
-					 0.0,  0.0,  1.0};
-	unsigned int VBB; 
-	glGenBuffers(1, &VBB);
-	glBindBuffer(GL_ARRAY_BUFFER, VBB);
-	glBufferData(GL_ARRAY_BUFFER, 9*4, data, GL_STATIC_DRAW);
-
 	/***************************************************************************
 	* ATTRIBUTE HANDLES - based on the way the shader is written; mapped to data 
 	***************************************************************************/      
-	int aPositionHandle = glGetAttribLocation(programID, "a_Position");
-	int aUVHandle = glGetAttribLocation(programID, "a_UV");
-	int aNormalHandle = glGetAttribLocation(programID, "a_Normal");
+	int aPositionHandle = glGetAttribLocation(bunnyProgram, "a_Position");
+	int aUVHandle = glGetAttribLocation(bunnyProgram, "a_UV");
+	int aNormalHandle = glGetAttribLocation(bunnyProgram, "a_Normal");
 
 	/***************************************************************************************
 	* UNIFORM HANDLES - kept to update uniforms; mapped for each frame (could be pre-cached)
 	***************************************************************************************/      
 	// Establish shader-specific variables
-	int uMatrixHandle = glGetUniformLocation(programID, "u_Matrix");
-	int uTextureHandle = glGetUniformLocation(programID, "u_Texture");
-	int uThresholdHandle = glGetUniformLocation(programID, "u_Threshold");
-	int uCameraHandle = glGetUniformLocation(programID, "u_Camera");
-	int uMaterialA = glGetUniformLocation(programID, "u_MaterialAmbient");
-	int uMaterialD = glGetUniformLocation(programID, "u_MaterialDiffuse");
-	int uMaterialS = glGetUniformLocation(programID, "u_MaterialSpecular");
-	int uMaterialShine = glGetUniformLocation(programID, "u_MaterialShine");
-	int uLightHandle = glGetUniformLocation(programID, "u_LightPos");
+	int uTextureHandle = glGetUniformLocation(bunnyProgram, "u_Texture");
+	int uThresholdHandle = glGetUniformLocation(bunnyProgram, "u_Threshold");
+	int uCameraHandle = glGetUniformLocation(bunnyProgram, "u_Camera");
+	int uLightHandle = glGetUniformLocation(bunnyProgram, "u_LightPos");
+
+	int uMaterialA = glGetUniformLocation(bunnyProgram, "u_MaterialAmbient");
+	int uMaterialD = glGetUniformLocation(bunnyProgram, "u_MaterialDiffuse");
+	int uMaterialS = glGetUniformLocation(bunnyProgram, "u_MaterialSpecular");
+	int uMaterialShine = glGetUniformLocation(bunnyProgram, "u_MaterialShine");
+
+	int uProHandle = glGetUniformLocation(bunnyProgram, "u_Projection");
+	int uModelHandle = glGetUniformLocation(bunnyProgram, "u_Model");
+	int uViewHandle = glGetUniformLocation(bunnyProgram, "u_View");
 
 	// MVP Data for transforming vertices
-	mat4 mvp;	  
+	mat4 mvp, view, model, projection;
 
 	// Camera data 
 	myCam.camX = myCam.camY = myCam.camZ = myCam.pitch = myCam.yaw = myCam.roll = 0.0;
@@ -135,7 +165,7 @@ int main(int argc, char **argv)
 		processUserInputs(running);      
 		{
 			// Setup Program, Attach appropriate buffer
-			glUseProgram(programID);
+			glUseProgram(bunnyProgram);
 			// Clear buffers, setup/use program 
 			glClearColor(0,0,0, 1.0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -145,14 +175,11 @@ int main(int argc, char **argv)
 			***************************************************************************/     
 			glBindBuffer(GL_ARRAY_BUFFER, VBO);
 			glEnableVertexAttribArray(aPositionHandle);
-			glVertexAttribPointer(aPositionHandle, 
-				3, GL_FLOAT, GL_FALSE, stride*sizeof(float), (void*)0);
+			glVertexAttribPointer(aPositionHandle, 3, GL_FLOAT, GL_FALSE, stride*sizeof(float), (void*)0);
 			glEnableVertexAttribArray(aUVHandle);
-			glVertexAttribPointer(aUVHandle, 
-				2, GL_FLOAT, GL_FALSE, stride*sizeof(float), (void*)(3*sizeof(float)));
+			glVertexAttribPointer(aUVHandle, 2, GL_FLOAT, GL_FALSE, stride*sizeof(float), (void*)(3*sizeof(float)));
 			glEnableVertexAttribArray(aNormalHandle);
-			glVertexAttribPointer(aNormalHandle, 
-				3, GL_FLOAT, GL_FALSE, stride*sizeof(float), (void*)(5*sizeof(float)));
+			glVertexAttribPointer(aNormalHandle, 3, GL_FLOAT, GL_FALSE, stride*sizeof(float), (void*)(5*sizeof(float)));
 
 			// Update Texture - Assume that we want texture '0'
 			glActiveTexture(GL_TEXTURE0 + 0); // + "i" to change texture chosen
@@ -161,19 +188,36 @@ int main(int argc, char **argv)
 			glUniform1i(uTextureHandle, 0);
 			glUniform1f(uThresholdHandle, threshold);
 			glUniform3f(uCameraHandle, myCam.camX, myCam.camY, myCam.camZ);
-			glUniform3f(uLightHandle, 1.2f, 1.0f, 2.0f);
+			glUniform3f(uLightHandle, 0.0f, 0.0f, 0.0f);
 			
 			glUniform3f(uMaterialA, materials[0].Ka[0], materials[0].Ka[1], materials[0].Ka[2]);
 			glUniform3f(uMaterialD, materials[0].Kd[0], materials[0].Kd[1], materials[0].Kd[2]);
 			glUniform3f(uMaterialS, materials[0].Ks[0], materials[0].Ks[1], materials[0].Ks[2]);
 			glUniform1f(uMaterialShine, materials[0].Ns);
-
 			// Update MVP
-			setupMVP(mvp);
-			glUniformMatrix4fv(uMatrixHandle, 1, false, &mvp[0][0]);
-
+			setupMVP(view, model, projection);
+			glUniformMatrix4fv(uViewHandle, 1, false,  &view[0][0]);
+			glUniformMatrix4fv(uModelHandle, 1, false,  &model[0][0]);
+			glUniformMatrix4fv(uProHandle, 1, false,  &projection[0][0]);
 			// Output what we have
 			glDrawArrays(GL_TRIANGLES, 0, numDraw);
+
+			// floor
+			glUseProgram(floorProgram);
+			glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
+			glEnableVertexAttribArray(aFPositionHandle);
+			glVertexAttribPointer(aFPositionHandle, 3, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*)0);
+			glEnableVertexAttribArray(aFUVHandle);
+			glVertexAttribPointer(aFUVHandle, 2, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*)(3*sizeof(float)));
+			glActiveTexture(GL_TEXTURE0 + 1); // + "i" to change texture chosen
+			glBindTexture(GL_TEXTURE_2D, checkerID);
+			glUniform1f(uFThresholdHandle, threshold);
+			glUniform1i(uFTextureHandle, 1);
+			setupMVP(mvp);
+			glUniformMatrix4fv(uFMatrixHandle, 1, false, &mvp[0][0]);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			
+			drawTree(treeProgram);
 		}
 		// Update SDL buffer
 		SDL_GL_SwapWindow(win);

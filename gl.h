@@ -47,8 +47,12 @@ struct userCamera
 bool isW = false;
 bool isA = false;
 bool isD = false;
-bool isS = false; 
+bool isS = false;
+bool isLeft = false;
+bool isRight = false;
+bool isM = false;
 
+bool moving = false;
 float threshold = 1.0;
 /**********************************************************
  * < END OF GLOBALS >
@@ -60,13 +64,11 @@ float threshold = 1.0;
 float magical = -10.0;
 bool processUserInputs(bool & running)
 {
+	bool isFlip = false;
 	SDL_Event e;
 	while(SDL_PollEvent(&e)) 
 	{
-		if(e.type == SDL_QUIT) 
-		{
-			running = false;
-		}
+		if(e.type == SDL_QUIT) running = false;
 		if(e.type == SDL_KEYDOWN && e.key.keysym.sym == 'q') 
 		{
 			running = false;
@@ -75,19 +77,13 @@ bool processUserInputs(bool & running)
 		if(e.type == SDL_KEYDOWN && e.key.keysym.sym == 't') 
 		{
 			threshold -= 0.01;
-			if(threshold < 0)
-			{
-				threshold = 0;
-			}
+			if(threshold < 0) threshold = 0;
 			break;
 		}
 		if(e.type == SDL_KEYDOWN && e.key.keysym.sym == 'y') 
 		{
 			threshold += 0.01;
-			if(threshold > 1.0)
-			{
-				threshold = 1.0;
-			}
+			if(threshold > 1.0) threshold = 1.0;
 			break;
 		}
 
@@ -98,7 +94,7 @@ bool processUserInputs(bool & running)
             {
                 double mouseX = e.motion.xrel;
                 double mouseY = e.motion.yrel;
-                myCam.yaw   -= (mouseX * CAM_INCREMENT);
+                myCam.yaw   += (mouseX * CAM_INCREMENT);
                 myCam.pitch -= (mouseY * CAM_INCREMENT);
             }
         }
@@ -118,44 +114,44 @@ bool processUserInputs(bool & running)
         }
 
         // Translation
-        if((e.key.keysym.sym == 'w'))
-        {
-			isW = e.type == SDL_KEYDOWN;
-        }
-        if(e.key.keysym.sym == 's')
-        {
-			isS = e.type == SDL_KEYDOWN;
-        }
-        if(e.key.keysym.sym == 'a')
-        {
-			isA = e.type == SDL_KEYDOWN;
-        }
-        if(e.key.keysym.sym == 'd')
-        {
-			isD = e.type == SDL_KEYDOWN;
-        }
+        if((e.key.keysym.sym == 'w')) isW = e.type == SDL_KEYDOWN;
+        if(e.key.keysym.sym == 's') isS = e.type == SDL_KEYDOWN;
+        if(e.key.keysym.sym == 'a') isA = e.type == SDL_KEYDOWN;
+        if(e.key.keysym.sym == 'd') isD = e.type == SDL_KEYDOWN;
+        if(e.key.keysym.sym == 'k') isLeft = e.type == SDL_KEYDOWN;
+        if(e.key.keysym.sym == 'l') isRight = e.type == SDL_KEYDOWN;
+        if(e.key.keysym.sym == 'f') isFlip = e.type == SDL_KEYDOWN;
+        if(e.key.keysym.sym == 'm') isM = e.type == SDL_KEYDOWN;
 	}
 
 	if(isA)
 	{
 		myCam.camX -= (cos((myCam.yaw / 180.0) * M_PI)) * STEP_INCREMENT;
-		myCam.camZ += (sin((myCam.yaw / 180.0) * M_PI)) * STEP_INCREMENT;
+		myCam.camZ -= (sin((myCam.yaw / 180.0) * M_PI)) * STEP_INCREMENT;
 	}
 	if(isW)
 	{
 		myCam.camZ -= (cos((myCam.yaw / 180.0) * M_PI)) * STEP_INCREMENT;
-		myCam.camX -= (sin((myCam.yaw / 180.0) * M_PI)) * STEP_INCREMENT;
+		myCam.camX += (sin((myCam.yaw / 180.0) * M_PI)) * STEP_INCREMENT;
 	}
 	if(isS)
 	{
 		myCam.camZ += (cos((myCam.yaw / 180.0) * M_PI)) * STEP_INCREMENT;
-		myCam.camX += (sin((myCam.yaw / 180.0) * M_PI)) * STEP_INCREMENT;
+		myCam.camX -= (sin((myCam.yaw / 180.0) * M_PI)) * STEP_INCREMENT;
 	}
 	if(isD)
 	{
 		myCam.camX += (cos((myCam.yaw / 180.0) * M_PI)) * STEP_INCREMENT;
-		myCam.camZ -= (sin((myCam.yaw / 180.0) * M_PI)) * STEP_INCREMENT;
+		myCam.camZ += (sin((myCam.yaw / 180.0) * M_PI)) * STEP_INCREMENT;
 	}
+	if(isM)
+	{
+		moving = true;
+		myCam.camZ = myCam.camY = myCam.camX = myCam.pitch = myCam.roll = 0;
+	}
+	if(isLeft) myCam.yaw -= CAM_INCREMENT;
+	if(isRight) myCam.yaw += CAM_INCREMENT;
+	if(isFlip) myCam.yaw += 180;
 }
 
 struct bmpRGB
@@ -353,26 +349,54 @@ bool loadTexture(char * fileName, int & handle)
 	return true;
 }
 
-float potRot = 0.0;
 void setupMVP(mat4 & mvp)
 {
-	mat4 proj = glm::perspective(glm::radians(60.0f), SCREEN_W / SCREEN_H, 0.1f, 100.0f);  // Perspective matrix
+	mat4 proj = glm::perspective(glm::radians(60.0f), SCREEN_W / SCREEN_H, 0.1f, 200.0f);  // Perspective matrix
 	mat4 view = glm::mat4(1.0);
-	view = 		glm::rotate(view, 			glm::radians(-myCam.pitch), glm::vec3(1.0f, 0.0f, 0.0f));
-	view = 		glm::rotate(view, 			glm::radians(-myCam.yaw), glm::vec3(0.0, 1.0f, 0.0));
-	view = 		glm::translate(view, 		glm::vec3(-myCam.camX, -myCam.camY, -myCam.camZ));
+	view = 		glm::rotate(view,	glm::radians(-myCam.pitch), glm::vec3(1.0f, 0.0f, 0.0f));
+	view = 		glm::rotate(view, 	glm::radians(-myCam.yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+	view = 		glm::translate(view,glm::vec3(-myCam.camX, -myCam.camY, -myCam.camZ));
 	mat4 model = glm::mat4(1.0);
-	model = glm::mat4(1.0);
-    model = glm::translate(model, glm::vec3(0, -5, -10));
-    model = glm::rotate(model, glm::radians(-potRot), glm::vec3(0.0f, 1.0f, 0.0f));
-    model = glm::scale(model, glm::vec3(40.0));
-	/*
-	mat4 model = glm::mat4(1.0);
-	model = glm::translate(model, glm::vec3(0, 0, -10));
-	model = glm::rotate(model, glm::radians(-potRot), glm::vec3(0.0f, 1.0f, 0.0f));
-	model = glm::scale(model, glm::vec3(3.0));*/
+    model = glm::translate(model, glm::vec3(0, 30, -10));
+	model = glm::rotate(model, glm::radians(-65.0f), glm::vec3(1.0f,0.0f,0.0f));
+    model = glm::scale(model, glm::vec3(100.0f));
 	mvp = proj * view * model;
-	potRot += 0.05;
+}
+
+float transY = -15.0;
+float transX = 13;
+bool up = true;
+bool left = true;
+void setupMVP(mat4 & view, mat4 & model, mat4 & projection)
+{
+	projection = glm::perspective(glm::radians(60.0f), SCREEN_W / SCREEN_H, 0.1f, 200.0f);  // Perspective matrix
+	view = 	glm::mat4(1.0);
+	view = 	glm::rotate(view, glm::radians(-myCam.pitch), glm::vec3(1.0f, 0.0f, 0.0f));
+	view = 	glm::rotate(view, glm::radians(-myCam.yaw), glm::vec3(0.0, 1.0f, 0.0));
+	view = 	glm::translate(view, glm::vec3(-myCam.camX, -myCam.camY, -myCam.camZ));
+	model = glm::mat4(1.0);
+    model = glm::translate(model, glm::vec3(transX, transY, -60));
+   	model = glm::scale(model, glm::vec3(40.0));
+	if(moving)
+	{
+		mat4 flip = glm::mat4(1.0);
+		flip = glm::rotate(flip, glm::radians(((float)180)), glm::vec3(0.0f, 1.0f, 0.0f));
+		if(transY > -3.0 || transY < -15.0) up = !up;
+		if(up) transY += 0.003;
+		else transY -= 0.003;
+		if(transX > 30 || transX < -30) left = !left;
+		if(left) 
+		{
+			transX -= 0.003;
+			myCam.yaw = 0;
+		}
+		else
+		{
+			transX += 0.003;
+			projection *= flip;
+			myCam.yaw = 180;
+		}
+	}
 }
 
 struct vertexData
