@@ -16,21 +16,21 @@
     int aTUVHandle;
     unsigned int TreeVBO;
 
-//void setupTMVP(mat4 & view, mat4 & model, mat4 & projection)
 void setupTMVP(mat4 & mvp)
 {
-    float scale = 4.0;
+    float scale = 18.0;
 	mat4 projection = glm::perspective(glm::radians(60.0f), SCREEN_W / SCREEN_H, 0.1f, 200.0f);  // Perspective matrix
 	mat4 view = glm::mat4(1.0);
 	view = 		glm::rotate(view,	glm::radians(-myCam.pitch), glm::vec3(1.0f, 0.0f, 0.0f));
 	view = 		glm::rotate(view, 	glm::radians(-myCam.yaw), glm::vec3(0.0f, 1.0f, 0.0f));
 	view = 		glm::translate(view,glm::vec3(-myCam.camX, -myCam.camY, -myCam.camZ));
 	mat4 model = glm::mat4(1.0);
-    model = glm::translate(model, glm::vec3(0, -10, -80));
+    model = glm::translate(model, glm::vec3(0, 0, -70));
+    model = glm::scale(model, glm::vec3(scale));
     mat4 modelView = view * model;
     modelView[0][0] = scale; modelView[0][1] = 0.0;   modelView[0][2] = 0.0;
-    modelView[1][0] = 0.0;   modelView[1][1] = scale; modelView[1][2] = 0.0;
-    modelView[2][0] = 0.0;   modelView[2][1] = 0.0;   modelView[2][2] = scale;
+    //modelView[1][0] = 0.0;   modelView[1][1] = scale; modelView[1][2] = 0.0;
+    //modelView[2][0] = 0.0;   modelView[2][1] = 0.0;   modelView[2][2] = scale;
     mvp = projection * modelView;
 }
 bool setupTree(int &programID)

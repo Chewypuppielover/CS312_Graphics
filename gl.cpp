@@ -2,6 +2,7 @@
 #include "SDL2/SDL.h"
 #include "gl.h"
 #include "tree.h"
+#include "floor.h"
 
 // To compile: g++ gl.cpp -lopengl32 -lglew32 -lSDL2 -lmingw32
 int main(int argc, char **argv)
@@ -35,21 +36,10 @@ int main(int argc, char **argv)
 	success &= compileShader(bunnyFragmentShader.c_str(), GL_FRAGMENT_SHADER, bunnyFragID);
 	success &= compileProgram(bunnyVertexID, bunnyFragID, bunnyProgram);
 
-	string floorVertexShader;
-	string floorFragmentShader;
-	int floorVertexID;
-	int floorFragID;
 	int floorProgram;
-	int checkerID;
-	success &= parseFile((char*)"vertex.vs", floorVertexShader);
-	success &= parseFile((char*)"fragment.fs"  , floorFragmentShader);
-	success &= compileShader(floorVertexShader.c_str(), GL_VERTEX_SHADER, floorVertexID);
-	success &= compileShader(floorFragmentShader.c_str(), GL_FRAGMENT_SHADER, floorFragID);
-	success &= compileProgram(floorVertexID, floorFragID, floorProgram);
-    success &= loadTexture("checker.bmp", checkerID);
-
+	success &= setupFLoor(floorProgram);
 	int treeProgram;
-	setupTree(treeProgram);
+	success &= setupTree(treeProgram);
 	/***************************************************************************************
 	* OBJECT LOADER - Vertices, UVs, Normals, etc
 	***************************************************************************************/  
@@ -95,26 +85,6 @@ int main(int argc, char **argv)
 	}
 	validate(success, (char*)"Setup OpenGL Program");
 	
-	float planeVertices[] = {
-        -1, -1,  0,   0, 0,
-		 1, -1,  0,   1, 0,
-		 1,  1, -1,   1, 1,
-
-		 1,  1, -1,   0, 0, //1, 1,
-		-1,  1, -1,   0, 1, //0, 1
-        -1, -1,  0,   1, 1, //0, 0,
-    };
-    // plane VAO
-    unsigned int planeVBO;
-    glGenBuffers(1, &planeVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices, GL_STATIC_DRAW);
-	int aFPositionHandle = glGetAttribLocation(floorProgram, "a_Position");
-	int aFUVHandle = glGetAttribLocation(floorProgram, "a_UV");
-	int uFTextureHandle = glGetUniformLocation(floorProgram, "u_Texture");
-	int uFThresholdHandle = glGetUniformLocation(floorProgram, "u_Threshold");
-	int uFMatrixHandle = glGetUniformLocation(floorProgram, "u_Matrix");
-
 	/***************************************************************************************
 	* VERTEX BUFFER OBJECT - Vertex data AND Attributes
 	***************************************************************************************/  
@@ -151,7 +121,7 @@ int main(int argc, char **argv)
 	int uViewHandle = glGetUniformLocation(bunnyProgram, "u_View");
 */
 	// MVP Data for transforming vertices
-	mat4 mvp, Bmvp;
+	mat4 Bmvp;
 
 	// Camera data 
 	myCam.camX = myCam.camY = myCam.camZ = myCam.pitch = myCam.yaw = myCam.roll = 0.0;
@@ -205,21 +175,7 @@ int main(int argc, char **argv)
 */			// Output what we have
 			glDrawArrays(GL_TRIANGLES, 0, numDraw);
 
-			// floor
-			glUseProgram(floorProgram);
-			glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
-			glEnableVertexAttribArray(aFPositionHandle);
-			glVertexAttribPointer(aFPositionHandle, 3, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*)0);
-			glEnableVertexAttribArray(aFUVHandle);
-			glVertexAttribPointer(aFUVHandle, 2, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*)(3*sizeof(float)));
-			glActiveTexture(GL_TEXTURE0 + 1); // + "i" to change texture chosen
-			glBindTexture(GL_TEXTURE_2D, checkerID);
-			glUniform1f(uFThresholdHandle, threshold);
-			glUniform1i(uFTextureHandle, 1);
-			setupMVP(mvp);
-			glUniformMatrix4fv(uFMatrixHandle, 1, false, &mvp[0][0]);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-
+			drawFloor(floorProgram);
 			drawTree(treeProgram);
 		}
 		// Update SDL buffer

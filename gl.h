@@ -94,7 +94,7 @@ bool processUserInputs(bool & running)
             {
                 double mouseX = e.motion.xrel;
                 double mouseY = e.motion.yrel;
-                myCam.yaw   += (mouseX * CAM_INCREMENT);
+                myCam.yaw   -= (mouseX * CAM_INCREMENT);
                 myCam.pitch -= (mouseY * CAM_INCREMENT);
             }
         }
@@ -378,22 +378,22 @@ void setupBMVP(mat4 & mvp)
     model = glm::translate(model, glm::vec3(transX, transY, -60));
    	model = glm::scale(model, glm::vec3(40.0));
     mat4 modelView = view * model;
-    modelView[0][0] = 40.0; modelView[0][1] = 0.0;  modelView[0][2] = 0.0;
-    modelView[1][0] = 0.0;  modelView[1][1] = 40.0; modelView[1][2] = 0.0;
-    modelView[2][0] = 0.0;  modelView[2][1] = 0.0;  modelView[2][2] = 40.0;
+    //modelView[0][0] = 40.0; modelView[0][1] = 0.0;  modelView[0][2] = 0.0;
+    //modelView[1][0] = 0.0;  modelView[1][1] = 40.0; modelView[1][2] = 0.0;
+    //modelView[2][0] = 0.0;  modelView[2][1] = 0.0;  modelView[2][2] = 40.0;
 		mat4 flip = glm::mat4(1.0);
 		flip = glm::rotate(flip, glm::radians(((float)180)), glm::vec3(0.0f, 1.0f, 0.0f));
-
+		float incr = 0.003;
 	if(moving)
 	{
-		if(transY > -3.0 || transY < -15.0) up = !up;
-		if(up) transY += 0.003;
-		else transY -= 0.003;
-		if(transX > 30 || transX < -30) left = !left;
-		if(left) transX -= 0.003;
+		if(transY > -10.0 || transY < -15.0) up = !up;
+		if(up) transY += incr;
+		else transY -= incr;
+		if(transX > 30 || transX < -30) if(transY < -15.0) {left = !left; SDL_Delay(200);}
+		if(left) transX -= incr;
 		else
 		{
-			transX += 0.003;
+			transX += incr;
 			modelView *= flip;
 		}
 	}
