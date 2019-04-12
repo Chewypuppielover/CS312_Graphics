@@ -147,7 +147,7 @@ bool processUserInputs(bool & running)
 	if(isM)
 	{
 		moving = true;
-		myCam.camZ = myCam.camY = myCam.camX = myCam.pitch = myCam.roll = 0;
+		myCam.camZ = myCam.camY = myCam.camX = myCam.pitch = myCam.roll = myCam.yaw = 0;
 	}
 	if(isLeft) myCam.yaw -= CAM_INCREMENT;
 	if(isRight) myCam.yaw += CAM_INCREMENT;
@@ -367,36 +367,37 @@ float transY = -15.0;
 float transX = 13;
 bool up = true;
 bool left = true;
-void setupMVP(mat4 & view, mat4 & model, mat4 & projection)
+void setupBMVP(mat4 & mvp)
 {
-	projection = glm::perspective(glm::radians(60.0f), SCREEN_W / SCREEN_H, 0.1f, 200.0f);  // Perspective matrix
-	view = 	glm::mat4(1.0);
+	mat4 projection = glm::perspective(glm::radians(60.0f), SCREEN_W / SCREEN_H, 0.1f, 200.0f);  // Perspective matrix
+	mat4 view = 	glm::mat4(1.0);
 	view = 	glm::rotate(view, glm::radians(-myCam.pitch), glm::vec3(1.0f, 0.0f, 0.0f));
 	view = 	glm::rotate(view, glm::radians(-myCam.yaw), glm::vec3(0.0, 1.0f, 0.0));
 	view = 	glm::translate(view, glm::vec3(-myCam.camX, -myCam.camY, -myCam.camZ));
-	model = glm::mat4(1.0);
+	mat4 model = glm::mat4(1.0);
     model = glm::translate(model, glm::vec3(transX, transY, -60));
    	model = glm::scale(model, glm::vec3(40.0));
-	if(moving)
-	{
+    mat4 modelView = view * model;
+    modelView[0][0] = 40.0; modelView[0][1] = 0.0;  modelView[0][2] = 0.0;
+    modelView[1][0] = 0.0;  modelView[1][1] = 40.0; modelView[1][2] = 0.0;
+    modelView[2][0] = 0.0;  modelView[2][1] = 0.0;  modelView[2][2] = 40.0;
 		mat4 flip = glm::mat4(1.0);
 		flip = glm::rotate(flip, glm::radians(((float)180)), glm::vec3(0.0f, 1.0f, 0.0f));
+
+	if(moving)
+	{
 		if(transY > -3.0 || transY < -15.0) up = !up;
 		if(up) transY += 0.003;
 		else transY -= 0.003;
 		if(transX > 30 || transX < -30) left = !left;
-		if(left) 
-		{
-			transX -= 0.003;
-			myCam.yaw = 0;
-		}
+		if(left) transX -= 0.003;
 		else
 		{
 			transX += 0.003;
-			projection *= flip;
-			myCam.yaw = 180;
+			modelView *= flip;
 		}
 	}
+	mvp = projection * modelView;
 }
 
 struct vertexData

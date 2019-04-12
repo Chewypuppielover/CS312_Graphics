@@ -145,12 +145,13 @@ int main(int argc, char **argv)
 	int uMaterialS = glGetUniformLocation(bunnyProgram, "u_MaterialSpecular");
 	int uMaterialShine = glGetUniformLocation(bunnyProgram, "u_MaterialShine");
 
-	int uProHandle = glGetUniformLocation(bunnyProgram, "u_Projection");
+	int uMatrixHandle = glGetUniformLocation(bunnyProgram, "u_Matrix");
+/*	int uProHandle = glGetUniformLocation(bunnyProgram, "u_Projection");
 	int uModelHandle = glGetUniformLocation(bunnyProgram, "u_Model");
 	int uViewHandle = glGetUniformLocation(bunnyProgram, "u_View");
-
+*/
 	// MVP Data for transforming vertices
-	mat4 mvp, view, model, projection;
+	mat4 mvp, Bmvp;
 
 	// Camera data 
 	myCam.camX = myCam.camY = myCam.camZ = myCam.pitch = myCam.yaw = myCam.roll = 0.0;
@@ -195,11 +196,13 @@ int main(int argc, char **argv)
 			glUniform3f(uMaterialS, materials[0].Ks[0], materials[0].Ks[1], materials[0].Ks[2]);
 			glUniform1f(uMaterialShine, materials[0].Ns);
 			// Update MVP
-			setupMVP(view, model, projection);
+			setupBMVP(Bmvp);
+			glUniformMatrix4fv(uMatrixHandle, 1, false, &Bmvp[0][0]);
+/*			setupMVP(view, model, projection);
 			glUniformMatrix4fv(uViewHandle, 1, false,  &view[0][0]);
 			glUniformMatrix4fv(uModelHandle, 1, false,  &model[0][0]);
 			glUniformMatrix4fv(uProHandle, 1, false,  &projection[0][0]);
-			// Output what we have
+*/			// Output what we have
 			glDrawArrays(GL_TRIANGLES, 0, numDraw);
 
 			// floor
@@ -216,7 +219,7 @@ int main(int argc, char **argv)
 			setupMVP(mvp);
 			glUniformMatrix4fv(uFMatrixHandle, 1, false, &mvp[0][0]);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
-			
+
 			drawTree(treeProgram);
 		}
 		// Update SDL buffer
